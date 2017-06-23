@@ -25,12 +25,16 @@ architecture tb of testbench is
 	signal tb_clock, tb_reset, tb_en, tb_r_w : std_logic;
 	signal tb_sda, tb_scl : std_logic;
 	signal tb_reg	: std_logic_vector(7 downto 0) := x"aa";
-	constant max_clock : integer := (50);
+
+	signal clk_cnt : integer range 0 to 9 := 0;
+	signal ack : std_logic;
+	constant max_clock : integer := (100);
 
 begin
 
   UUT: i2c port map (tb_clock, tb_reset, tb_en, tb_r_w, tb_reg, tb_sda, tb_scl);
 
+  tb_sda <= '0' when ((clk_cnt = 9) and (tb_scl = '0')) else 'H';
 
   clk_gen: process
   begin
@@ -43,25 +47,36 @@ begin
 	tb_reg <= x"aa";
 
 	tb_en <= '1';
+	tb_r_w <= tb_reg(0);
 
 
     for i in 0 to max_clock loop
 
-      if (i = 36) then
-      	tb_sda <= '0';
-      else
-      	tb_sda <= 'H';
-      end if;
+    	--if ((clk_cnt = 9) and (tb_scl = '0')) then
+    	--	tb_sda <= '0';
+    	--else
+    	--	tb_sda <= 'H';
+    	--end if;
 
-      tb_clock <= '1';
-      wait for 0.5 ns;
-      tb_clock <= '0';
-      wait for 0.5 ns;
+	    tb_clock <= '1';
+	    wait for 0.5 ns;
+	    tb_clock <= '0';
+	    wait for 0.5 ns;
 
 	end loop;
     wait;
   end process clk_gen;
 
+  clk_countr : process (tb_scl)
+  begin
+    if (falling_edge(tb_scl)) then
+  		if ((clk_cnt + 1) <= 9) then
+	  		clk_cnt <= clk_cnt + 1;
+	  	else
+	  		clk_cnt <= 1;		
+  		end if;
+    end if;
+  end process clk_countr;
 
 
 end tb;

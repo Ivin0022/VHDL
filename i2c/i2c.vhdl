@@ -19,9 +19,11 @@ end i2c;
 
 architecture i2c_arc of i2c is
 
-	TYPE machine IS(ready, start, command1, command2, command3, command4, command_end, 
-								  ack, ack2, ack3, ack4,
-								  msg1, msg2, msg3, msg4, msg_end, stop); --needed states
+	TYPE machine IS(ready, start, 
+					wrt_clk_L, wrt_bit_snd, wrt_clk_H, wrt_nxt_bit, wrt_end, 
+					ack_clk_L, ack1, ack_clk_H, ack3, read,
+					stop); --needed states
+
     signal state : machine;
     signal sda : std_logic;
 	signal bit_cnt : INTEGER range 0 to 7 := 7;
@@ -45,72 +47,53 @@ begin
 				when start =>     	
 					sda <= '0';
 					scl <= '1';
-					state <= command1;
+					state <= wrt_clk_L;
 
-				when command1 =>		
+				when wrt_clk_L =>		
 					scl <= '0';
-					state <= command2;
+					state <= wrt_bit_snd;
 				
-				when command2 =>	
+				when wrt_bit_snd =>	
 					sda <= reg(bit_cnt);
-					state <= command3;
+					state <= wrt_clk_H;
 					
-				when command3 =>  
+				when wrt_clk_H =>  
 					scl <= '1';
-					state <= command4;
+					state <= wrt_nxt_bit;
 
-				when command4 =>
+				when wrt_nxt_bit =>
 					if (bit_cnt - 1) >= 0 then
 						bit_cnt <= bit_cnt - 1;
-						state <= command1;
+						state <= wrt_clk_L;
 					else
 						bit_cnt <= 7;
-						state <= command_end;
+						state <= ack_clk_L;
 					end if;
 
-				when command_end =>
+				when ack_clk_L =>
 					scl <= '0';
-					state <= ack;
+					state <= ack1;
 
-				when ack =>
-					sda <= sda_ext;
-					state <= ack2;
+				when ack1 =>
+					if (r_w = '1') then
+						sda <= '0';
+					end if;
+					state <= ack_clk_H;
 
-				when ack2 =>
+				when ack_clk_H =>
 					scl <= '1';
 					state <= ack3; 
 
 				when ack3 =>
-					state <= ack4; 
-
-				when ack4 =>
-					scl <= '0';
-					state <= msg1; 
-
-				when msg1 =>		
-					scl <= '0';
-					state <= msg2;
-				
-				when msg2 =>	
-					sda <= reg(bit_cnt);
-					state <= msg3;
-					
-				when msg3 =>  
-					scl <= '1';
-					state <= msg4;
-
-				when msg4 =>
-					if (bit_cnt - 1) >= 0 then
-						bit_cnt <= bit_cnt - 1;
-						state <= msg1;
+					if (sda_ext = '0') then
+						if (r_w = '1') then
+							state <= read;
+						elsif (r_w = '0') then
+							state <= wrt_clk_L; 
+						end if;
 					else
-						bit_cnt <= 7;
-						state <= msg_end;
+						state <= stop;
 					end if;
-
-				when msg_end =>
-					scl <= '0';
-					state <= stop;
 
 				when others =>
 					null;
